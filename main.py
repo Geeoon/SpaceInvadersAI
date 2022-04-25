@@ -13,7 +13,7 @@ class NeuralNetwork:
         net = tflearn.fully_connected(self.observation, 256, activation="relu")  # hidden layers
         net = tflearn.fully_connected(net, 256, activation="relu")  # hidden layers
         net = tflearn.fully_connected(net, 256, activation="relu")  # hidden layers
-        self.out = tflearn.fully_connected(net, outputs, activation="softmax")
+        self.out = tflearn.fully_connected(net, outputs, activation="softmax")  # output layer; should have as many nodes as there are actions
 
         self.reward_holder = tf.placeholder(tf.float32, [None])
         self.action_holder = tf.placeholder(tf.int32, [None])
@@ -28,13 +28,13 @@ class Agent:
     def __init__(self):
         self.discount_factor = 0.99
 
-        self.num_episodes = 1500
-        self.max_time = 500
+        self.num_episodes = 100000
+        self.max_time = 100000
         self.all_rewards = []
         self.saver = tf.train.Saver()
         self.train_data = []
 
-        self.nn = NeuralNetwork(4, 2)
+        self.nn = None
         
     def discount_reward(self, rewards):
         running_total = 0.0
@@ -45,14 +45,17 @@ class Agent:
         return result
 
     def run_agent(self, env):
+        observation_space_size = env.observation_space.shape[0]
+        action_space_size = env.action_space.n
+        self.nn = NeuralNetwork(observation_space_size, action_space_size)
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
             for i in range(self.num_episodes):
                 obs = env.reset()
                 episode_reward = 0
                 ep_history = []
-                for j in range(self.max_time):
-                    a_one_hot = sess.run(self.nn.out, feed_dict={self.nn.observation: [obs]}).reshape(2)
+                while True:
+                    a_one_hot = sess.run(self.nn.out, feed_dict={self.nn.observation: [obs]}).reshape(action_space_size)
                     action = np.random.choice(a_one_hot, p=a_one_hot)
                     action = np.argmax(a_one_hot == action)
                     obs1, r, d, _ = env.step(action)
